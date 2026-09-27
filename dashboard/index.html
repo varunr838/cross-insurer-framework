@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cross-Insurer Fraud Detection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --primary-color: #3b82f6;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .panel {
+            background: var(--surface-color);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s;
+        }
+
+        h1 {
+            grid-column: 1 / -1;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .form-group { margin-bottom: 1rem; }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        button:hover { background: #2563eb; }
+        button:active { transform: scale(0.98); }
+
+        .results { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        .result-card {
+            background: #0f172a;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #334155;
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        .result-card.active {
+            opacity: 1;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .status-UNIQUE { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+        .status-NEAR_DUPLICATE { background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid var(--warning); }
+        .status-EXACT_DUPLICATE { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+
+        .hash-display {
+            font-family: monospace;
+            background: #1e293b;
+            padding: 0.75rem;
+            border-radius: 6px;
+            word-break: break-all;
+            color: var(--primary-color);
+            font-size: 0.875rem;
+        }
+
+        .pre-fill-buttons { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+        .pre-fill-buttons button { background: #334155; padding: 0.5rem; font-size: 0.8rem; }
+        .pre-fill-buttons button:hover { background: #475569; }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cross-Insurer Fraud Detection</h1>
+        
+        <div class="panel">
+            <h2>Submit a Claim</h2>
+            <div class="pre-fill-buttons">
+                <button onclick="prefill('original')">Load Original</button>
+                <button onclick="prefill('exact')">Load Exact Duplicate</button>
+                <button onclick="prefill('near')">Load Near Duplicate</button>
+            </div>
+            
+            <form id="claimForm">
+                <div class="form-group">
+                    <label>Claim ID</label>
+                    <input type="text" id="claim_id" value="c-100" required>
+                </div>
+                <div class="form-group">
+                    <label>Insurer ID</label>
+                    <input type="text" id="insurer_id" value="InsurerA" required>
+                </div>
+                <div class="form-group">
+                    <label>Policy Type</label>
+                    <input type="text" id="policy_type" value="Auto" required>
+                </div>
+                <div class="form-group">
+                    <label>Claimant ID (SSN/Gov ID)</label>
+                    <input type="text" id="claimant_id" value="123-45-6789" required>
+                </div>
+                <div class="form-group">
+                    <label>Incident Date</label>
+                    <input type="text" id="incident_date" value="2024-10-15T12:00:00" required>
+                </div>
+                <div class="form-group">
+                    <label>Claim Amount ($)</label>
+                    <input type="number" step="0.01" id="claim_amount" value="1500.00" required>
+                </div>
+                <div class="form-group">
+                    <label>Provider ID</label>
+                    <input type="text" id="provider_id" value="prv-999" required>
+                </div>
+                <div class="form-group">
+                    <label>Diagnosis / Incident Code</label>
+                    <input type="text" id="diagnosis_code" value="coll-123" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="description" rows="3" required>Minor fender bender on main st</textarea>
+                </div>
+                <button type="submit">Evaluate Claim</button>
+            </form>
+        </div>
+
+        <div class="panel results">
+            <h2>Analysis Results</h2>
+            <div class="result-card" id="result-container">
+                <div id="status-badge" class="status-badge" style="display:none;">PENDING</div>
+                
+                <div class="form-group">
+                    <label>Confidence Score</label>
+                    <div id="confidence-score" style="font-size: 2rem; font-weight: 700;">--</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Cryptographic Fingerprint (SHA-256)</label>
+                    <div class="hash-display" id="exact-hash">Submit a claim to generate hash...</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: auto;">
+                <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5;">
+                    <strong>How it works:</strong> The decision engine first fingerprints the claim deterministically. 
+                    If the hash exists on the global registry, it's flagged as an Exact Duplicate. 
+                    Otherwise, the AI similarity service evaluates it against past claims for Near Duplicates.
+                </p>
+                <button onclick="resetSystem()" style="background: #334155; margin-top: 1rem;">Reset System Databases</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const claims = {
+            original: {
+                claim_id: "c-100", insurer_id: "InsurerA", policy_type: "Auto", claimant_id: "123-45-6789",
+                incident_date: "2024-10-15T12:00:00", claim_amount: 1500.00, provider_id: "prv-999",
+                diagnosis_or_incident_code: "coll-123", description: "Minor fender bender on main st"
+            },
+            exact: {
+                claim_id: "c-999", insurer_id: "InsurerB", policy_type: "auto", claimant_id: " 123-45-6789 ",
+                incident_date: "2024-10-15", claim_amount: 1500.0, provider_id: "PRV-999",
+                diagnosis_or_incident_code: "COLL-123", description: "Minor fender bender on main st"
+            },
+            near: {
+                claim_id: "c-555", insurer_id: "InsurerC", policy_type: "Auto", claimant_id: "123-45-6789",
+                incident_date: "2024-10-16T12:00:00", claim_amount: 1550.00, provider_id: "prv-999",
+                diagnosis_or_incident_code: "coll-123", description: "Minor fender bender on main street"
+            }
+        };
+
+        function prefill(type) {
+            const c = claims[type];
+            document.getElementById('claim_id').value = c.claim_id;
+            document.getElementById('insurer_id').value = c.insurer_id;
+            document.getElementById('policy_type').value = c.policy_type;
+            document.getElementById('claimant_id').value = c.claimant_id;
+            document.getElementById('incident_date').value = c.incident_date;
+            document.getElementById('claim_amount').value = c.claim_amount;
+            document.getElementById('provider_id').value = c.provider_id;
+            document.getElementById('diagnosis_code').value = c.diagnosis_or_incident_code;
+            document.getElementById('description').value = c.description;
+        }
+
+        document.getElementById('claimForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const payload = {
+                claim_id: document.getElementById('claim_id').value,
+                insurer_id: document.getElementById('insurer_id').value,
+                policy_type: document.getElementById('policy_type').value,
+                claimant_id: document.getElementById('claimant_id').value,
+                incident_date: document.getElementById('incident_date').value,
+                claim_amount: parseFloat(document.getElementById('claim_amount').value),
+                provider_id: document.getElementById('provider_id').value,
+                diagnosis_or_incident_code: document.getElementById('diagnosis_code').value,
+                description: document.getElementById('description').value
+            };
+
+            try {
+                const response = await fetch('http://localhost:8003/evaluate_claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                displayResults(data);
+            } catch (err) {
+                alert("Error connecting to backend services. Ensure they are running.");
+                console.error(err);
+            }
+        });
+
+        function displayResults(data) {
+            const container = document.getElementById('result-container');
+            container.classList.add('active');
+            
+            const badge = document.getElementById('status-badge');
+            badge.style.display = 'inline-block';
+            badge.className = `status-badge status-${data.status}`;
+            badge.innerText = data.status.replace('_', ' ');
+
+            document.getElementById('confidence-score').innerText = (data.confidence * 100).toFixed(1) + '%';
+            document.getElementById('exact-hash').innerText = data.exact_hash || 'N/A';
+        }
+
+        async function resetSystem() {
+            try {
+                await fetch('http://localhost:8003/debug/reset', { method: 'DELETE' });
+                alert("Mock databases reset!");
+                document.getElementById('result-container').classList.remove('active');
+                document.getElementById('status-badge').style.display = 'none';
+                document.getElementById('confidence-score').innerText = '--';
+                document.getElementById('exact-hash').innerText = 'Submit a claim to generate hash...';
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>

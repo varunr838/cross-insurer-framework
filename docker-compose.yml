@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: cross_insurer
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Placeholder Services
+  ingestion_service:
+    image: alpine
+    command: tail -f /dev/null
+    depends_on:
+      - postgres
+
+  fingerprint_service:
+    build: ./services/fingerprint_service
+    environment:
+      - CONSORTIUM_SALT=dev-salt-abc-123
+    ports:
+      - "8001:8000"
+
+  similarity_service:
+    build: ./services/similarity_service
+    ports:
+      - "8002:8000"
+
+  decision_service:
+    build: ./services/decision_service
+    environment:
+      - FINGERPRINT_SERVICE_URL=http://fingerprint_service:8000/fingerprint
+      - SIMILARITY_SERVICE_URL=http://similarity_service:8000/similarity
+    ports:
+      - "8003:8000"
+    depends_on:
+      - fingerprint_service
+      - similarity_service
+
+  gateway:
+    image: alpine
+    command: tail -f /dev/null
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
