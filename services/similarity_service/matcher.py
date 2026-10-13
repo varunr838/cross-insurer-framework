@@ -1,4 +1,7 @@
-from .models import Claim
+try:
+    from .models import Claim
+except (ImportError, ValueError):
+    from models import Claim
 from dateutil import parser
 from difflib import SequenceMatcher
 import math

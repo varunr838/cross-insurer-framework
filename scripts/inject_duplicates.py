@@ -99,7 +99,7 @@ def main():
     # Shuffle final claims so duplicates aren't all at the end
     random.shuffle(final_claims)
     
-    fieldnames = list(claims[0].keys()
+    fieldnames = list(claims[0].keys())
     save_claims(final_claims, args.output, fieldnames)
     save_ground_truth(ground_truth, args.ground_truth)
     

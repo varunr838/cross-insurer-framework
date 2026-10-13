@@ -224,18 +224,41 @@
                 </div>
             </div>
             
-            <div style="margin-top: auto;">
-                <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5;">
-                    <strong>How it works:</strong> The decision engine first fingerprints the claim deterministically. 
-                    If the hash exists on the global registry, it's flagged as an Exact Duplicate. 
-                    Otherwise, the AI similarity service evaluates it against past claims for Near Duplicates.
+            <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #334155;">
+                <h3>Batch Ingestion (CSV)</h3>
+                <p style="color: var(--text-secondary); font-size: 0.85rem;">
+                    Upload a generated synthetic claims CSV file to run bulk evaluation.
                 </p>
-                <button onclick="resetSystem()" style="background: #334155; margin-top: 1rem;">Reset System Databases</button>
+                <input type="file" id="csvFile" accept=".csv" style="margin-bottom: 0.75rem;">
+                <button type="button" onclick="uploadCsv()" style="background: #2563eb;">Ingest Batch CSV</button>
+                <div id="batch-stats" style="margin-top: 1rem; display: none; font-size: 0.9rem; background: #0f172a; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">
+                    <div><strong>Batch Results:</strong></div>
+                    <div id="batch-details" style="margin-top: 0.5rem; line-height: 1.6; color: var(--text-secondary);"></div>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; padding-top: 1.5rem;">
+                <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+                    <strong>Architecture:</strong> Claims are canonicalized and salted (SHA-256) by the Fingerprint Service. 
+                    Unregistered claims are cross-checked for semantic/attribute near duplicates by the Similarity Service.
+                </p>
+                <button onclick="resetSystem()" style="background: #334155; margin-top: 0.5rem;">Reset Registry & Database</button>
             </div>
         </div>
     </div>
 
     <script>
+        // Automatic API base discovery
+        let API_BASE = window.location.port === "8000" ? "" : "http://localhost:8000";
+
+        async function getWorkingApiBase() {
+            try {
+                const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(1500) });
+                if (res.ok) return API_BASE;
+            } catch (e) {}
+            return "http://localhost:8003"; // fallback to direct decision service
+        }
+
         const claims = {
             original: {
                 claim_id: "c-100", insurer_id: "InsurerA", policy_type: "Auto", claimant_id: "123-45-6789",
@@ -282,8 +305,9 @@
                 description: document.getElementById('description').value
             };
 
+            const base = await getWorkingApiBase();
             try {
-                const response = await fetch('http://localhost:8003/evaluate_claim', {
+                const response = await fetch(`${base}/evaluate_claim`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -292,7 +316,7 @@
                 const data = await response.json();
                 displayResults(data);
             } catch (err) {
-                alert("Error connecting to backend services. Ensure they are running.");
+                alert(`Error connecting to backend at ${base}. Ensure services or docker-compose are running.`);
                 console.error(err);
             }
         });
@@ -310,14 +334,52 @@
             document.getElementById('exact-hash').innerText = data.exact_hash || 'N/A';
         }
 
-        async function resetSystem() {
+        async function uploadCsv() {
+            const input = document.getElementById('csvFile');
+            if (!input.files || input.files.length === 0) {
+                alert("Please select a CSV file first.");
+                return;
+            }
+            const formData = new FormData();
+            formData.append("file", input.files[0]);
+
+            const base = await getWorkingApiBase();
+            const targetUrl = base.includes("8003") ? "http://localhost:8004/ingest/csv" : `${base}/ingest/csv`;
+
             try {
-                await fetch('http://localhost:8003/debug/reset', { method: 'DELETE' });
-                alert("Mock databases reset!");
+                const response = await fetch(targetUrl, {
+                    method: "POST",
+                    body: formData
+                });
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                const data = await response.json();
+                
+                const statsDiv = document.getElementById('batch-stats');
+                const detailsDiv = document.getElementById('batch-details');
+                statsDiv.style.display = 'block';
+                detailsDiv.innerHTML = `
+                    Total Processed: <strong>${data.total_processed}</strong><br>
+                    Unique: <span style="color:var(--success)">${data.unique_count}</span> | 
+                    Exact Duplicates: <span style="color:var(--danger)">${data.exact_duplicates}</span> | 
+                    Near Duplicates: <span style="color:var(--warning)">${data.near_duplicates}</span> | 
+                    Errors: ${data.errors}
+                `;
+            } catch (err) {
+                alert(`Failed to ingest CSV. Ensure Ingestion Service is running.`);
+                console.error(err);
+            }
+        }
+
+        async function resetSystem() {
+            const base = await getWorkingApiBase();
+            try {
+                await fetch(`${base}/debug/reset`, { method: 'DELETE' });
+                alert("Consortium registry and operational databases reset!");
                 document.getElementById('result-container').classList.remove('active');
                 document.getElementById('status-badge').style.display = 'none';
                 document.getElementById('confidence-score').innerText = '--';
                 document.getElementById('exact-hash').innerText = 'Submit a claim to generate hash...';
+                document.getElementById('batch-stats').style.display = 'none';
             } catch (err) {
                 console.error(err);
             }

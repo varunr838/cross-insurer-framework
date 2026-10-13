@@ -1,7 +1,11 @@
-from fastapi import FastAPI
-from .models import Claim, FingerprintResponse
-from .canonicalizer import canonicalize_claim
-from .hasher import generate_exact_hash
+try:
+    from .models import Claim, FingerprintResponse
+    from .canonicalizer import canonicalize_claim
+    from .hasher import generate_exact_hash
+except (ImportError, ValueError):
+    from models import Claim, FingerprintResponse
+    from canonicalizer import canonicalize_claim
+    from hasher import generate_exact_hash
 
 app = FastAPI(title="Fingerprint Service", version="1.0.0")
 

@@ -1,7 +1,10 @@
 import hashlib
 import json
 from datetime import datetime
-from .models import Claim
+try:
+    from .models import Claim
+except (ImportError, ValueError):
+    from models import Claim
 
 def canonicalize_claim(claim: Claim) -> str:
     """

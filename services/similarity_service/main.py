@@ -1,6 +1,9 @@
-from fastapi import FastAPI
-from .models import SimilarityRequest, SimilarityResponse
-from .matcher import calculate_similarity
+try:
+    from .models import SimilarityRequest, SimilarityResponse
+    from .matcher import calculate_similarity
+except (ImportError, ValueError):
+    from models import SimilarityRequest, SimilarityResponse
+    from matcher import calculate_similarity
 
 app = FastAPI(title="Similarity Service")
 
